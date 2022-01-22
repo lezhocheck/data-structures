@@ -15,17 +15,15 @@ public:
         build2D(1, Range(0, static_cast<int64_t>(columnsSize()) - 1));
     }
 
-    SegmentTree2D(const SegmentTree2D& other) {
-        function = other.function;
-        matrix = other.matrix;
-        segmentTree2D = other.segmentTree2D;
-    }
+    SegmentTree2D(const SegmentTree2D& other) :
+        function(other.function),
+        matrix(other.matrix),
+        segmentTree2D(other.segmentTree2D) { }
 
-    SegmentTree2D(SegmentTree2D&& other) {
-        function = std::move(other.function);
-        matrix = std::move(other.matrix);
-        segmentTree2D = std::move(other.segmentTree2D);
-    }
+    SegmentTree2D(SegmentTree2D&& other) :
+        function(std::move(other.function)),
+        matrix(std::move(other.matrix)),
+        segmentTree2D(std::move(other.segmentTree2D)) { }
 
     T query(size_t fromColumn, size_t toColumn,
             size_t fromRow, size_t toRow) const {
@@ -60,16 +58,18 @@ public:
         function = nullptr;
     }
 
-    SegmentTree2D operator=(const SegmentTree2D& other) {
+    SegmentTree2D& operator=(const SegmentTree2D& other) {
         function = other.function;
         matrix = other.matrix;
         segmentTree2D = other.segmentTree2D;
+        return *this;
     }
 
-    SegmentTree2D operator=(SegmentTree2D&& other) {
+    SegmentTree2D& operator=(SegmentTree2D&& other) {
         function = std::move(other.function);
         matrix = std::move(other.matrix);
         segmentTree2D = std::move(other.segmentTree2D);
+        return *this;
     }
 
 private:

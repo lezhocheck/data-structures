@@ -8,9 +8,8 @@ template<typename T>
 class Matrix2D {
 public:
     Matrix2D() { }
-    Matrix2D(size_t x, size_t y) {
-        matrix.resize(x, std::vector<T>(y, 0));
-    }
+    Matrix2D(size_t x, size_t y) :
+        matrix(std::vector<std::vector<T>>(x, std::vector<T>(y, 0))) { }
 
     explicit Matrix2D(size_t n) {
         matrix.resize(n, std::vector<T>(n, 0));
@@ -19,20 +18,15 @@ public:
         }
     }
 
-    Matrix2D(const std::vector<std::vector<T>>& vector) {
+    explicit Matrix2D(const std::vector<std::vector<T>>& vector) {
         if(vector.size() == 0 || vector.at(0).size() == 0){
             throw std::invalid_argument("invalid parameters");
         }
         matrix = vector;
     }
 
-    Matrix2D(const Matrix2D& other) {
-        matrix = other.matrix;
-    }
-
-    Matrix2D(Matrix2D&& other) {
-        matrix = move(other.matrix);
-    }
+    Matrix2D(const Matrix2D& other) : matrix(other.matrix) { }
+    Matrix2D(Matrix2D&& other) : matrix(std::move(other.matrix)) { }
 
     const T& at(size_t x, size_t y) const {
         return matrix.at(x).at(y);
@@ -44,6 +38,10 @@ public:
 
     void clear() {
         matrix.clear();
+    }
+
+    void resize(size_t x, size_t y) {
+        matrix.resize(x, std::vector<T>(y));
     }
 
     std::pair<size_t, size_t> size() const {
@@ -103,12 +101,30 @@ public:
     template<typename U>
     friend Matrix2D<U> operator*(const U& lhs, const Matrix2D<U>& rhs);
 
-    Matrix2D operator=(const Matrix2D& other) {
+    Matrix2D& operator=(const Matrix2D& other) {
         matrix = other.matrix;
+        return *this;
     }
 
-    Matrix2D operator=(Matrix2D&& other) {
+    Matrix2D& operator=(Matrix2D&& other) {
         matrix = move(other.matrix);
+        return *this;
+    }
+
+    Matrix2D pow(size_t n) const {
+        Size thisSize = (Size)size();
+        if(thisSize.x != thisSize.y) {
+            throw std::logic_error("sizes mismatch");
+        }
+        Matrix2D result(thisSize.x);
+        Matrix2D temp(*this);
+        while(n) {
+            if (n & 1)
+                result = result * temp;
+            temp = temp * temp;
+            n >>= 1;
+        }
+        return result;
     }
 
 private:

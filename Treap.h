@@ -9,12 +9,10 @@ template<typename T>
 class Treap {
 public:
     Treap() : rnd(time(nullptr)) {}
-
     Treap(const Treap& other) = delete;
-
-    Treap(Treap&& other) : rnd(time(nullptr)) {
-        root = move(other.root);
-    }
+    Treap(Treap&& other) :
+        rnd(time(nullptr)),
+        root(move(other.root)) { }
 
     void insert(const T& value) {
         auto res = split(move(root), std::hash<T>{}(value));
@@ -44,10 +42,11 @@ public:
         return result;
     }
 
-    Treap operator=(const Treap& other) = delete;
+    Treap& operator=(const Treap& other) = delete;
 
-    Treap operator=(Treap&& other) {
+    Treap& operator=(Treap&& other) {
         root = move(other.root);
+        return *this;
     }
 private:
     std::mt19937 rnd;

@@ -9,13 +9,8 @@ class DisjointSetUnion {
 public:
     DisjointSetUnion() { }
 
-    DisjointSetUnion(const DisjointSetUnion& other) {
-        base = other.base;
-    }
-
-    DisjointSetUnion(DisjointSetUnion&& other) {
-        base = std::move(other.base);
-    }
+    DisjointSetUnion(const DisjointSetUnion& other) : base(other.base) { }
+    DisjointSetUnion(DisjointSetUnion&& other) : base(std::move(other.base)) { }
 
     void makeSet(const Set& set) {
         base[set] = {set, 0};
@@ -44,7 +39,7 @@ public:
         }
     }
 
-    size_t size() {
+    size_t size() const {
         return base.size();
     }
 
@@ -52,12 +47,14 @@ public:
         base.clear();
     }
 
-    DisjointSetUnion operator=(const DisjointSetUnion& other) {
+    DisjointSetUnion& operator=(const DisjointSetUnion& other) {
         base = other.base;
+        return *this;
     }
 
-    DisjointSetUnion operator=(DisjointSetUnion&& other) {
+    DisjointSetUnion& operator=(DisjointSetUnion&& other) {
         base = std::move(other.base);
+        return *this;
     }
 
 private:
