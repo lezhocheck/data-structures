@@ -1,85 +1,102 @@
-#pragma once
-#include <vector>
-#include <functional>
-#include <optional>
+/* Author: Oleh Toporkov */
+
+/* Usage:
+    const int INFINITY = 1'000'000'000;
+
+    template<typename T>
+    T max(const T& a, const T& b) {
+        return std::max(a, b);
+    }
+
+    template<typename T>
+    T sum(const T& a, const T& b) {
+        return a + b;
+    }
+
+    vector<vector<int>> matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+    };
+
+ 1) Case for maximum
+
+    SegmentTree2D<int> seg(matrix, max, -INFINITY);
+    seg.update(0, 0, 12);
+    int a = seg.query(1, 2, 1, 2);
+
+2) Case for sum
+
+    SegmentTree2D<int> seg(matrix, sum, 0);
+    seg.update(0, 0, 12);
+    int a = seg.query(1, 2, 1, 2);
+
+ */
+
 
 template<typename T>
 class SegmentTree2D {
 public:
-    SegmentTree2D(const std::vector<std::vector<T>>& initialMatrix,
-                  std::function<T(T, T)> func) {
+    // 'id' is a default element of applied operation. i.e. for integers: '0' for sum or '-INFINITY' for maximum
+    explicit SegmentTree2D(const std::vector<std::vector<T>>& initialMatrix,
+                           T function(const T&, const T&), const T& identityElement) {
         matrix = initialMatrix;
-        function = func;
+        func = function;
+        id = identityElement;
         segmentTree2D.resize(4 * columnsSize(),
-                             std::vector<T>(4 * rowsSize()));
-        build2D(1, Range(0, static_cast<int64_t>(columnsSize()) - 1));
+                             std::vector<T>(4 * rowsSize(), 0));
+        build2D(1, Range(0, columnsSize() - 1));
     }
 
-    SegmentTree2D(const SegmentTree2D& other) :
-        function(other.function),
-        matrix(other.matrix),
-        segmentTree2D(other.segmentTree2D) { }
+    // get query on range [fromColumn, toColumn], [fromRow, toRow]
+    T query(const size_t fromColumn, const size_t toColumn,
+                  const size_t fromRow, const size_t toRow) const {
 
-    SegmentTree2D(SegmentTree2D&& other) :
-        function(std::move(other.function)),
-        matrix(std::move(other.matrix)),
-        segmentTree2D(std::move(other.segmentTree2D)) { }
+        const Range range(0, columnsSize() - 1);
+        const Rectangle rectangle = {Point(fromColumn, fromRow),
+                                     Point(toColumn, toRow)};
+        const T result = query2D(1, range, rectangle);
 
-    T query(size_t fromColumn, size_t toColumn,
-            size_t fromRow, size_t toRow) const {
-        const Range range(0, static_cast<int64_t>(columnsSize()) - 1);
-        const Rectangle rectangle = {{fromColumn, fromRow}, {toColumn, toRow}};
-        std::optional<T> result = query2D(1, range, rectangle);
-        if(!result.has_value()){
-            throw std::invalid_argument("invalid indexes");
-        }
-        return result.value();
+        return result;
     }
 
-    void update(size_t column, size_t row, const T& newValue) {
-        const Range range(0, static_cast<int64_t>(columnsSize()) - 1);
-        update2D(1, range, {column, row}, newValue);
+    void update(const size_t column,
+                const size_t row, const T& newValue) {
+
+        const Range range(0, columnsSize() - 1);
+        const Point point(column, row);
+        update2D(1, range, point, newValue);
     }
 
     size_t columnsSize() const {
-        return matrix.size();
+        const size_t columns = matrix.size();
+        return columns;
     }
 
     size_t rowsSize() const {
         if (columnsSize() == 0) {
             return 0;
         }
-        return matrix.at(0).size();
-    }
-
-    void clear() {
-        segmentTree2D.clear();
-        matrix.clear();
-        function = nullptr;
-    }
-
-    SegmentTree2D& operator=(const SegmentTree2D& other) {
-        function = other.function;
-        matrix = other.matrix;
-        segmentTree2D = other.segmentTree2D;
-        return *this;
-    }
-
-    SegmentTree2D& operator=(SegmentTree2D&& other) {
-        function = std::move(other.function);
-        matrix = std::move(other.matrix);
-        segmentTree2D = std::move(other.segmentTree2D);
-        return *this;
+        const size_t rows = matrix.at(0).size();
+        return rows;
     }
 
 private:
     std::vector<std::vector<T>> segmentTree2D;
     std::vector<std::vector<T>> matrix;
-    std::function<T(T, T)> function;
+    T (*func)(const T&, const T&);
+    T id;
 
-    struct Point {
+    class Point {
+    public:
         size_t x;
         size_t y;
+
+        Point(const size_t xValue,
+              const size_t yValue) {
+            x = xValue;
+            y = yValue;
+        }
     };
 
     struct Rectangle {
@@ -92,26 +109,29 @@ private:
         size_t lowerBound;
         size_t upperBound;
 
-        Range(size_t lower, size_t upper) {
+        Range(const size_t lower, const size_t upper) {
             lowerBound = lower;
             upperBound = upper;
         }
 
         bool checkForBoundsEquality() const {
-            return lowerBound == upperBound;
+            const bool result = lowerBound == upperBound;
+            return result;
         }
 
         size_t getMedium() const {
-            return (lowerBound + upperBound) / 2;
+            const size_t result = (lowerBound + upperBound) / 2;
+            return result;
         }
     };
 
     // builds segment tree along the first (x) axis.
-    void build(std::vector<T>& segmentTree,
-               const std::vector<T>& array, size_t index,
-               const Range& range) {
+    void build(std::vector<T>* segmentTree,
+               const std::vector<T>& array,
+               const size_t index, const Range& range) {
+
         if (range.checkForBoundsEquality()) {
-            segmentTree.at(index) = array.at(range.lowerBound);
+            segmentTree->at(index) = array.at(range.lowerBound);
         } else {
             const size_t medium = range.getMedium();
 
@@ -120,106 +140,97 @@ private:
             build(segmentTree, array, 2 * index + 1,
                   Range(medium + 1, range.upperBound));
 
-            segmentTree.at(index) = function(segmentTree.at(2 * index),
-                                             segmentTree.at(2 * index + 1));
+            segmentTree->at(index) = func(segmentTree->at(2 * index),
+                                              segmentTree->at(2 * index + 1));
         }
     }
 
     // builds final version of segment tree along the second (y) axis.
     // call this function to build segment tree.
-    void build2D(size_t index, const Range& range) {
+    void build2D(const size_t index, const Range& range) {
         if (range.checkForBoundsEquality()) {
-            build(segmentTree2D.at(index),
+            build(&segmentTree2D.at(index),
                   matrix.at(range.lowerBound), 1,
-                  Range(0, static_cast<int64_t>(rowsSize()) - 1));
+                  Range(0, rowsSize() - 1));
         } else {
             const size_t medium = range.getMedium();
             build2D(2 * index, Range(range.lowerBound, medium));
             build2D(2 * index + 1, Range(medium + 1, range.upperBound));
 
-            const size_t rowSize =  segmentTree2D.at(index).size();
+            const size_t rowSize = segmentTree2D.at(index).size();
 
             for (size_t column = 0; column < rowSize; ++column) {
                 segmentTree2D.at(index).at(column) =
-                        function(segmentTree2D.at(2 * index).at(column),
+                        func(segmentTree2D.at(2 * index).at(column),
                                  segmentTree2D.at(2 * index + 1).at(column));
             }
         }
     }
 
-    // applies function in segment tree along the first (x) axis.
-     std::optional<T> query(const std::vector<T>& segmentTree, size_t index,
-                            const Range& queryRange,
-                            const Range& fixedRange) const {
+    // finds maximum value in segment tree along the first (x) axis.
+    T query(const std::vector<T>& segmentTree, const size_t index,
+                  const Range& queryRange, const Range& fixedRange) const {
         if (fixedRange.lowerBound > queryRange.upperBound ||
             fixedRange.upperBound < queryRange.lowerBound) {
-            return std::nullopt;
+            return id;
         }
 
         if (queryRange.lowerBound >= fixedRange.lowerBound &&
             queryRange.upperBound <= fixedRange.upperBound) {
-            const T value = segmentTree.at(index);
-            return std::optional<T>(value);
+            return segmentTree.at(index);
         }
 
         const size_t medium = queryRange.getMedium();
+        const T leftQuery = query(segmentTree, 2 * index,
+                                        Range(queryRange.lowerBound, medium), fixedRange);
+        const T rightQuery = query(segmentTree, 2 * index + 1,
+                                         Range(medium + 1, queryRange.upperBound), fixedRange);
 
-        const std::optional<T> leftQuery =
-                query(segmentTree, 2 * index,
-                      Range(queryRange.lowerBound, medium), fixedRange);
-
-        const std::optional<T> rightQuery =
-                query(segmentTree, 2 * index + 1,
-                      Range(medium + 1, queryRange.upperBound), fixedRange);
-
-        const T result = function(leftQuery.value(), rightQuery.value());
-
-        return std::optional<T>(result);
+        const T result = func(leftQuery, rightQuery);
+        return result;
     }
 
-    // applies function in segment tree
+    // finds maximum value in segment tree
     // along the second (y) axis and returns final result.
-    // call this function to get query result in the rectangle.
-    std::optional<T> query2D(size_t index,
+    // call this function to get maximum value in the rectangle.
+    T query2D(const size_t index,
                     const Range& columnsRange,
                     const Rectangle& rect) const {
         if (columnsRange.lowerBound > rect.topRight.x ||
             columnsRange.upperBound < rect.bottomLeft.x) {
-            return std::nullopt;
+            return id;
         }
 
         if (columnsRange.lowerBound >= rect.bottomLeft.x &&
             columnsRange.upperBound <= rect.topRight.x) {
-            const std::optional<T> queryResult =
-                    query(segmentTree2D[index], 1,
-                          Range(0, static_cast<int64_t>(rowsSize()) - 1),
-                          Range(rect.bottomLeft.y, rect.topRight.y));
+            const T queryResult = query(segmentTree2D[index], 1,
+                                              Range(0, rowsSize() - 1),
+                                              Range(rect.bottomLeft.y, rect.topRight.y));
             return queryResult;
         }
 
         const size_t medium = columnsRange.getMedium();
-        const std::optional<T> leftQuery =
-                query2D(2 * index,
-                        Range(columnsRange.lowerBound, medium), rect);
-        const std::optional<T> rightQuery =
-                query2D(2 * index + 1,
-                        Range(medium + 1, columnsRange.upperBound), rect);
+        const T leftQuery = query2D(2 * index,
+                                          Range(columnsRange.lowerBound, medium), rect);
+        const T rightQuery = query2D(2 * index + 1,
+                                           Range(medium + 1, columnsRange.upperBound), rect);
+        const T result = func(leftQuery, rightQuery);
 
-        const T result = function(leftQuery.value(), rightQuery.value());
-        return std::optional<T>(result);
+        return result;
     }
 
     // updates segment tree along the first (x) axis.
     void update(const Range& columnRange,
-                const Range& rowRange, size_t indexX,
-                size_t indexY,
+                const Range& rowRange, const size_t indexX,
+                const size_t indexY,
                 const Point& point, const T& value) {
+
         if (rowRange.checkForBoundsEquality()) {
             if (columnRange.checkForBoundsEquality()) {
                 segmentTree2D.at(indexX).at(indexY) = value;
             } else {
                 segmentTree2D.at(indexX).at(indexY) =
-                        function(segmentTree2D.at(indexX * 2).at(indexY),
+                        func(segmentTree2D.at(indexX * 2).at(indexY),
                                  segmentTree2D.at(indexX * 2 + 1).at(indexY));
             }
         } else {
@@ -234,14 +245,14 @@ private:
                        indexX, indexY * 2 + 1, point, value);
             }
             segmentTree2D.at(indexX).at(indexY) =
-                    function(segmentTree2D.at(indexX).at(indexY * 2),
+                    func(segmentTree2D.at(indexX).at(indexY * 2),
                              segmentTree2D.at(indexX).at(indexY * 2 + 1));
         }
     }
 
     // updates segment tree along the second (y) axis.
     // call this function to update value in the tree.
-    void update2D(size_t index, const Range& columnRange,
+    void update2D(const size_t index, const Range& columnRange,
                   const Point& point, const T& value) {
         if (!columnRange.checkForBoundsEquality()) {
             const size_t medium = columnRange.getMedium();
@@ -250,13 +261,11 @@ private:
                          Range(columnRange.lowerBound, medium), point, value);
             } else {
                 update2D(index * 2 + 1,
-                         Range(medium + 1, columnRange.upperBound),
-                         point, value);
+                         Range(medium + 1, columnRange.upperBound), point, value);
             }
         }
 
-        update(columnRange, Range(0, static_cast<int64_t>(rowsSize()) - 1),
+        update(columnRange, Range(0, rowsSize() - 1),
                index, 1, point, value);
     }
 };
-
